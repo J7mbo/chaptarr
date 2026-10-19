@@ -532,6 +532,8 @@ namespace NzbDrone.Core.Books
                 EbookTags = author.EbookTags,
                 Tags = author.Tags,
                 QueueIfUnavailable = true,
+                // New authors are created requested-only; existing authors are switched to it.
+                RequestedBooksOnly = author.RequestedBooksOnly == true,
                 MonitorMode = isSpecificBook ? MonitorTypes.SpecificBook : author.AddOptions?.Monitor,
                 SpecificBookProviderIds = new HashSet<string>(requestedIds, StringComparer.OrdinalIgnoreCase),
                 SpecificBookMediaType = mediaType,

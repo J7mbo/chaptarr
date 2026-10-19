@@ -136,7 +136,8 @@ class AddNewBookModalContentConnector extends Component {
       ebookMetadataProfileId,
       tags,
       audiobookTags,
-      ebookTags
+      ebookTags,
+      requestedBooksOnly
     } = this.props;
 
     if (!foreignBookId || !String(foreignBookId).trim()) {
@@ -204,7 +205,8 @@ class AddNewBookModalContentConnector extends Component {
       ebookMetadataProfileId: ebookMetaId,
       tags: selectedTags,
       audiobookTags: audiobookTagsValue,
-      ebookTags: ebookTagsValue
+      ebookTags: ebookTagsValue,
+      requestedBooksOnly: requestedBooksOnly?.value === true
     };
 
     if (book) {
@@ -261,6 +263,7 @@ AddNewBookModalContentConnector.propTypes = {
   tags: PropTypes.object.isRequired,
   audiobookTags: PropTypes.object,
   ebookTags: PropTypes.object,
+  requestedBooksOnly: PropTypes.object,
   onModalClose: PropTypes.func.isRequired,
   setBookAddDefault: PropTypes.func.isRequired,
   addBook: PropTypes.func.isRequired,

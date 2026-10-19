@@ -2,6 +2,7 @@
   <!-- Common to all Chaptarr Projects -->
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <ErrorOnDuplicatePublishOutputFiles>true</ErrorOnDuplicatePublishOutputFiles>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>

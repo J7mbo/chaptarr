@@ -107,6 +107,10 @@ namespace NzbDrone.Core.Books.Services
         public HashSet<string> SpecificBookProviderIds { get; set; }  // e.g., ["hc:495645", "hc:495646"]
         public BookMediaType? SpecificBookMediaType { get; set; }
 
+        // Only add the requested books (BooksToMonitor/BooksToSearch/SpecificBookProviderIds),
+        // never the rest of the author's catalogue. Persisted on newly created authors.
+        public bool RequestedBooksOnly { get; set; }
+
         public void MergeTagsForMediaType(BookMediaType mediaType, IEnumerable<int> tags)
         {
             if (tags == null)
@@ -576,6 +580,11 @@ namespace NzbDrone.Core.Books.Services
                 editionProviderId,
                 selection.MediaType);
 
+            var selectedWorkAllowList = new Dictionary<BookMediaType, HashSet<string>>
+            {
+                [selection.MediaType] = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { workProviderId }
+            };
+
             var localAuthor = FindExistingAuthor(authorProviderId, remoteAuthor);
             if (localAuthor == null)
             {
@@ -585,7 +594,7 @@ namespace NzbDrone.Core.Books.Services
             {
                 // First converge everything the normal profile permits. The exact selected row is
                 // seeded below only if that ordinary authoritative reconciliation did not retain it.
-                _refreshAuthorService.ReconcileAuthorBlob(localAuthor, remoteAuthor);
+                _refreshAuthorService.ReconcileAuthorBlob(localAuthor, remoteAuthor, selectedWorkAllowList);
                 localAuthor = _authorService.GetAuthor(localAuthor.Id) ?? localAuthor;
             }
 
@@ -620,7 +629,7 @@ namespace NzbDrone.Core.Books.Services
             // converge through the same canonical lifecycle as every other author refresh.
             if (_refreshAuthorService != null)
             {
-                _refreshAuthorService.ReconcileAuthorBlob(localAuthor, remoteAuthor);
+                _refreshAuthorService.ReconcileAuthorBlob(localAuthor, remoteAuthor, selectedWorkAllowList);
                 localAuthor = _authorService.GetAuthor(localAuthor.Id) ?? localAuthor;
                 localBook = ResolveLocalBookForUserSelection(
                     localAuthor,
@@ -1089,7 +1098,7 @@ namespace NzbDrone.Core.Books.Services
                     string.Join(",", requestedProviderIds
                         .SelectMany(requested => requested.Value.Select(providerId => $"{requested.Key}:{providerId}"))
                         .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)));
-                _refreshAuthorService.ReconcileAuthorBlob(existingAuthor, remoteAuthor);
+                _refreshAuthorService.ReconcileAuthorBlob(existingAuthor, remoteAuthor, requestedProviderIds);
                 existingAuthor = _authorService.GetAuthor(existingAuthor.Id) ?? existingAuthor;
                 existingBooks = _bookService.GetBooksByAuthor(existingAuthor.Id) ?? new List<Book>();
             }
@@ -1204,6 +1213,16 @@ namespace NzbDrone.Core.Books.Services
                 {
                     updated.LastSelectedMediaType = config.LastSelectedMediaType;
                     authorChanged = true;
+                }
+
+                // Asking for "only this book" on an existing author switches the author to
+                // requested-only before the catalogue reconcile below, so neither this add nor
+                // later refreshes pull in the rest of the catalogue. Never switched back here.
+                if (config.RequestedBooksOnly && updated.RequestedBooksOnly != true)
+                {
+                    updated.RequestedBooksOnly = true;
+                    authorChanged = true;
+                    _logger.Info("[REQUESTED-ONLY] Switching existing author '{0}' to requested books only", updated.Name);
                 }
 
                 if (authorChanged)
@@ -1797,6 +1816,11 @@ namespace NzbDrone.Core.Books.Services
                 return;
             }
 
+            if (config.RequestedBooksOnly)
+            {
+                author.RequestedBooksOnly = true;
+            }
+
             // Preserve the one-time book-row policy until the initial disk scan has
             // attached files. Specific-book requests are applied by provider ID and
             // must not be widened by this post-scan pass.
@@ -2130,6 +2154,20 @@ namespace NzbDrone.Core.Books.Services
                 editionSelector: _editionSelector,
                 retainEditions: true,
                 logContext: "ProcessBooksForAuthor");
+
+            if (author.RequestedBooksOnly == true)
+            {
+                var requested = GetRequestedBookProviderIdsByMediaType(config);
+                var before = books.Count;
+                books = books
+                    .Where(book => RequestedBookMatcher.MatchesAny(book, requested, _logger))
+                    .ToList();
+
+                _logger.Info("[REQUESTED-ONLY] Author '{0}' only tracks requested books; keeping {1} of {2} catalogue books",
+                    author.Name,
+                    books.Count,
+                    before);
+            }
 
             if (!books.Any())
             {
@@ -2523,34 +2561,7 @@ namespace NzbDrone.Core.Books.Services
 
         private bool BookMatchesProviderId(Book book, string providerId)
         {
-            if (string.IsNullOrEmpty(providerId))
-                return false;
-
-            // Provider IDs are in format "prefix:id" (e.g., "hc:495645", "gr:12345")
-            var parts = providerId.Split(':');
-            if (parts.Length != 2)
-                return false;
-
-            // Normalize prefix and id for defensive parsing
-            var prefix = parts[0].Trim().ToLowerInvariant();
-            var id = parts[1].Trim();
-            var normalizedProviderId = $"{prefix}:{id}";
-
-            if (BookIdentity.GetProviderIdentityTokens(book).Contains(normalizedProviderId))
-            {
-                return true;
-            }
-
-            // Extract raw IDs from book fields (they might have prefixes)
-            return prefix switch
-            {
-                "hc" => ExtractRawId(book.HardcoverBookId) == id,
-                "gr" => BookEditionIdentity.GetCanonicalWorkProviderIds(book).Concat(BookEditionIdentity.GetCanonicalEditionProviderIds(book, _logger, "AuthorLibraryService.BookMatchesProviderId")).Any(p => ExtractRawId(p) == id),
-                "ol" => ExtractRawId(book.OpenLibraryWorkId) == id,
-                "gb" => BookEditionIdentity.GetCanonicalEditionProviderIds(book, _logger, "AuthorLibraryService.BookMatchesProviderId").Any(p => ExtractRawId(p) == id),
-                "az" => BookEditionIdentity.GetCanonicalEditionProviderIds(book, _logger, "AuthorLibraryService.BookMatchesProviderId").Any(p => ExtractRawId(p).Equals(id, StringComparison.OrdinalIgnoreCase)),
-                _ => false
-            };
+            return RequestedBookMatcher.Matches(book, providerId, _logger);
         }
 
         private void SelectMonitoredEditions(List<Book> books, Author author, MonitoringConfig config)

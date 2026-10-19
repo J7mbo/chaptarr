@@ -20,6 +20,7 @@ function getNewAuthor(author, payload, mediaType) {
     tags,
     audiobookTags,
     ebookTags,
+    requestedBooksOnly,
     searchForMissingBooks = false
   } = payload;
 
@@ -29,6 +30,11 @@ function getNewAuthor(author, payload, mediaType) {
   };
 
   author.addOptions = addOptions;
+
+  // Only applied by the backend when this add creates the author.
+  if (requestedBooksOnly !== undefined) {
+    author.requestedBooksOnly = !!requestedBooksOnly;
+  }
 
   if (foreignAuthorId) {
     author.foreignAuthorId = foreignAuthorId;

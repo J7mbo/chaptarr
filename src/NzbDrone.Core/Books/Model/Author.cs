@@ -44,6 +44,11 @@ namespace NzbDrone.Core.Books
         public NewItemMonitorTypes? AudiobookMonitorNewItems { get; set; }
         public NewItemMonitorTypes? EbookMonitorNewItems { get; set; }
         public bool? SyncMonitoredAcrossFormats { get; set; }
+
+        // When true, metadata refreshes and adds never pull in the rest of this author's
+        // catalogue: only books the user explicitly requested (or that already exist
+        // locally) are kept. NULL/false is the default full-catalogue behaviour.
+        public bool? RequestedBooksOnly { get; set; }
         public bool AudiobookSettingsManuallyOverridden { get; set; }
         public bool EbookSettingsManuallyOverridden { get; set; }
 
@@ -248,6 +253,7 @@ namespace NzbDrone.Core.Books
             AudiobookSettingsManuallyOverridden = other.AudiobookSettingsManuallyOverridden;
             EbookSettingsManuallyOverridden = other.EbookSettingsManuallyOverridden;
             SyncMonitoredAcrossFormats = other.SyncMonitoredAcrossFormats;
+            RequestedBooksOnly = other.RequestedBooksOnly;
             LastInfoSync = other.LastInfoSync;
             Path = other.Path;
             AudiobookRootFolderPath = other.AudiobookRootFolderPath;
@@ -355,6 +361,10 @@ namespace NzbDrone.Core.Books
             if (other.SyncMonitoredAcrossFormats.HasValue)
             {
                 SyncMonitoredAcrossFormats = other.SyncMonitoredAcrossFormats;
+            }
+            if (other.RequestedBooksOnly.HasValue)
+            {
+                RequestedBooksOnly = other.RequestedBooksOnly;
             }
             LastSelectedMediaType = other.LastSelectedMediaType;
         }

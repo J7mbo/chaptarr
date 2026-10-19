@@ -49,6 +49,7 @@ function createMapStateToProps() {
         'ebookMonitored',
         'ebookMonitorNewItems',
         'syncMonitoredAcrossFormats',
+        'requestedBooksOnly',
         'audiobookQualityProfileId',
         'ebookQualityProfileId',
         'audiobookMetadataProfileId',

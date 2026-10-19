@@ -78,7 +78,8 @@ export const defaultState = {
     ebookMetadataProfileId: 0,
     tags: [],
     audiobookTags: [],
-    ebookTags: []
+    ebookTags: [],
+    requestedBooksOnly: false
   }
 };
 

@@ -4,12 +4,15 @@ import TextTruncate from 'react-text-truncate';
 import BookCover from 'Book/BookCover';
 import Alert from 'Components/Alert';
 import CheckInput from 'Components/Form/CheckInput';
+import FormGroup from 'Components/Form/FormGroup';
+import FormInputGroup from 'Components/Form/FormInputGroup';
+import FormLabel from 'Components/Form/FormLabel';
 import SpinnerButton from 'Components/Link/SpinnerButton';
 import ModalBody from 'Components/Modal/ModalBody';
 import ModalContent from 'Components/Modal/ModalContent';
 import ModalFooter from 'Components/Modal/ModalFooter';
 import ModalHeader from 'Components/Modal/ModalHeader';
-import { kinds } from 'Helpers/Props';
+import { inputTypes, kinds } from 'Helpers/Props';
 import getErrorMessage from 'Utilities/Object/getErrorMessage';
 import stripHtml from 'Utilities/String/stripHtml';
 import translate from 'Utilities/String/translate';
@@ -206,6 +209,7 @@ class AddNewBookModalContent extends Component {
       localEbookBooks,
       onSetDefaultMediaType,
       isSavingDefaultMediaType,
+      requestedBooksOnly,
       onModalClose,
       ...otherProps
     } = this.props;
@@ -287,6 +291,20 @@ class AddNewBookModalContent extends Component {
                 isSavingDefaultMediaType={isSavingDefaultMediaType}
                 {...otherProps}
               />
+
+              <FormGroup>
+                <FormLabel>
+                  {translate('RequestedBooksOnlyAdd')}
+                </FormLabel>
+
+                <FormInputGroup
+                  type={inputTypes.CHECK}
+                  name="requestedBooksOnly"
+                  helpText={translate(isExistingAuthor ? 'RequestedBooksOnlyAddExistingHelpText' : 'RequestedBooksOnlyAddHelpText', { authorName })}
+                  {...(requestedBooksOnly || { value: false })}
+                  onChange={otherProps.onInputChange}
+                />
+              </FormGroup>
 
               {
                 isQueued && addNotice ?
@@ -374,6 +392,8 @@ AddNewBookModalContent.propTypes = {
   localEbookBooks: PropTypes.arrayOf(PropTypes.object),
   onSetDefaultMediaType: PropTypes.func,
   isSavingDefaultMediaType: PropTypes.bool,
+  requestedBooksOnly: PropTypes.object,
+  onInputChange: PropTypes.func.isRequired,
   onModalClose: PropTypes.func.isRequired,
   onAddBookPress: PropTypes.func.isRequired
 };

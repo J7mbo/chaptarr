@@ -34,6 +34,11 @@ namespace NzbDrone.Core.Books
     public interface IRefreshAuthorService
     {
         bool ReconcileAuthorBlob(Author localAuthor, Author authoritativeRemoteAuthor) => false;
+
+        // requestedBooks: books (by media type) that may be added even when the author only tracks
+        // requested books. Ignored for full-catalogue authors.
+        bool ReconcileAuthorBlob(Author localAuthor, Author authoritativeRemoteAuthor, IReadOnlyDictionary<BookMediaType, HashSet<string>> requestedBooks) =>
+            ReconcileAuthorBlob(localAuthor, authoritativeRemoteAuthor);
     }
 
     public class RefreshAuthorService : RefreshEntityServiceBase<Author, Book>,
@@ -67,6 +72,11 @@ namespace NzbDrone.Core.Books
         private List<Book> _authorRefreshRehomeBlueprint;
 
         private static readonly SemaphoreSlim AuthorMetadataRefreshGate = new SemaphoreSlim(1, 1);
+
+        // Books an in-flight ReconcileAuthorBlob call explicitly requested; these may be added to
+        // a requested-books-only author. Thread-scoped because reconciliation runs synchronously.
+        [ThreadStatic]
+        private static IReadOnlyDictionary<BookMediaType, HashSet<string>> _requestedBooksAllowList;
         // SMS /authors/diff hard-rejects requests above 10,000 items and caps the body at 1MB;
         // 9,000 leaves headroom for one oversize author id-set appended to a nearly-full chunk.
         internal const int BulkAuthorDiffMaxItemsPerRequest = 9000;
@@ -324,17 +334,31 @@ namespace NzbDrone.Core.Books
 
         public bool ReconcileAuthorBlob(Author localAuthor, Author authoritativeRemoteAuthor)
         {
+            return ReconcileAuthorBlob(localAuthor, authoritativeRemoteAuthor, null);
+        }
+
+        public bool ReconcileAuthorBlob(Author localAuthor, Author authoritativeRemoteAuthor, IReadOnlyDictionary<BookMediaType, HashSet<string>> requestedBooks)
+        {
             if (localAuthor?.Id <= 0 || authoritativeRemoteAuthor == null)
             {
                 return false;
             }
 
-            return RefreshEntityInfoIfRemoteDataAvailable(
-                localAuthor,
-                authoritativeRemoteAuthor,
-                forceChildRefresh: true,
-                forceUpdateFileTags: false,
-                lastUpdate: null);
+            var previousAllowList = _requestedBooksAllowList;
+            _requestedBooksAllowList = requestedBooks;
+            try
+            {
+                return RefreshEntityInfoIfRemoteDataAvailable(
+                    localAuthor,
+                    authoritativeRemoteAuthor,
+                    forceChildRefresh: true,
+                    forceUpdateFileTags: false,
+                    lastUpdate: null);
+            }
+            finally
+            {
+                _requestedBooksAllowList = previousAllowList;
+            }
         }
 
         protected override RemoteData GetRemoteData(Author local, List<Author> remote, Author data)
@@ -1835,6 +1859,8 @@ namespace NzbDrone.Core.Books
 
         protected override void ProcessChildren(Author entity, SortedChildren children)
         {
+            DropUnrequestedCatalogueBooks(entity, children);
+
             _logger.Debug("ProcessChildren: Processing {0} new books for author {1}", children.Added.Count, entity.Name);
 
             foreach (var book in children.Added)
@@ -1860,6 +1886,46 @@ namespace NzbDrone.Core.Books
 
                 _logger.Info("MISSING_BOOK_CREATED: '{0}' - Original narrator '{1}' -> NULL (preventing metadata pollution)", book.Title, originalNarrator ?? "NULL");
             }
+        }
+
+        // Requested-books-only authors never gain catalogue books from a refresh. Existing local
+        // books still match and refresh as usual; only brand-new rows are dropped, unless they were
+        // explicitly requested in this reconciliation or absorb existing local rows (merge targets).
+        internal void DropUnrequestedCatalogueBooks(Author entity, SortedChildren children)
+        {
+            DropUnrequestedCatalogueBooks(entity, children, _requestedBooksAllowList);
+        }
+
+        internal void DropUnrequestedCatalogueBooks(Author entity, SortedChildren children, IReadOnlyDictionary<BookMediaType, HashSet<string>> allowList)
+        {
+            if (entity?.RequestedBooksOnly != true || children?.Added == null || !children.Added.Any())
+            {
+                return;
+            }
+
+            var mergeTargets = new HashSet<Book>(
+                children.Merged.Where(m => m?.Item2 != null).Select(m => m.Item2),
+                ReferenceEqualityComparer.Instance);
+
+            var dropped = children.Added
+                .Where(book => book != null &&
+                               !mergeTargets.Contains(book) &&
+                               !RequestedBookMatcher.MatchesAny(book, allowList, _logger))
+                .ToList();
+
+            if (!dropped.Any())
+            {
+                return;
+            }
+
+            foreach (var book in dropped)
+            {
+                children.Added.Remove(book);
+            }
+
+            _logger.Debug("[REQUESTED-ONLY] Author '{0}' only tracks requested books; skipped {1} new catalogue books",
+                entity.Name,
+                dropped.Count);
         }
 
         private bool ShouldMonitorNewBook(Book addedBook, Author entity, bool isAudiobook)

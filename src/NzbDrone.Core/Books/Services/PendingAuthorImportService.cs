@@ -257,6 +257,13 @@ namespace NzbDrone.Core.Books.Services
                         updated = true;
                     }
 
+                    // Any request for the full catalogue wins over a requested-books-only request.
+                    if (existing.RequestedBooksOnly == true && !config.RequestedBooksOnly)
+                    {
+                        existing.RequestedBooksOnly = null;
+                        updated = true;
+                    }
+
                     if (config.SearchForMissingBooks == true && !existing.SearchForMissingBooks)
                     {
                         existing.SearchForMissingBooks = true;
@@ -316,6 +323,7 @@ namespace NzbDrone.Core.Books.Services
                     RequestedBy = config.RequestedBy,
                     SearchForMissingBooks = config.SearchForMissingBooks ?? false,
                     LastSelectedMediaType = config.LastSelectedMediaType,
+                    RequestedBooksOnly = config.RequestedBooksOnly ? true : null,
                     Version = 1
                 };
 

@@ -71,6 +71,7 @@ namespace Chaptarr.Api.V1.Author
         public int? EbookMonitorExisting { get; set; }
         public bool? EbookMonitorFuture { get; set; }
         public bool? SyncMonitoredAcrossFormats { get; set; }
+        public bool? RequestedBooksOnly { get; set; }
 
         public string AudiobookRootFolderPath { get; set; }
         public string EbookRootFolderPath { get; set; }
@@ -164,6 +165,7 @@ namespace Chaptarr.Api.V1.Author
                 EbookMonitorExisting = ToLegacyMonitorExisting(model.EbookMonitored, model.EbookMonitorNewItems),
                 EbookMonitorFuture = ToLegacyMonitorFuture(model.EbookMonitorNewItems),
                 SyncMonitoredAcrossFormats = model.SyncMonitoredAcrossFormats,
+                RequestedBooksOnly = model.RequestedBooksOnly == true,
 
                 CleanName = model.CleanName,
                 ForeignAuthorId = BuildForeignAuthorId(model, facadeContext),
@@ -522,6 +524,7 @@ namespace Chaptarr.Api.V1.Author
                 EbookMonitored = ebookMonitored,
                 EbookMonitorNewItems = ebookMonitorNewItems,
                 SyncMonitoredAcrossFormats = resource.SyncMonitoredAcrossFormats,
+                RequestedBooksOnly = resource.RequestedBooksOnly,
 
                 CleanName = resource.CleanName,
                 AudiobookRootFolderPath = audiobookRootFolderPath?.GetCleanPath(),

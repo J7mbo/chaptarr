@@ -105,6 +105,7 @@ class EditAuthorModalContent extends Component {
       ebookMonitored,
       ebookMonitorNewItems,
       syncMonitoredAcrossFormats,
+      requestedBooksOnly,
       audiobookQualityProfileId,
       ebookQualityProfileId,
       audiobookMetadataProfileId,
@@ -179,6 +180,20 @@ class EditAuthorModalContent extends Component {
                 helpText={syncMonitoredAcrossFormatsHelpText}
                 isDisabled={syncMonitoredAcrossFormatsDisabled}
                 {...(syncMonitoredAcrossFormats || { value: false })}
+                onChange={onInputChange}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>
+                {translate('RequestedBooksOnly')}
+              </FormLabel>
+
+              <FormInputGroup
+                type={inputTypes.CHECK}
+                name="requestedBooksOnly"
+                helpText={translate('RequestedBooksOnlyEditHelpText')}
+                {...(requestedBooksOnly || { value: false })}
                 onChange={onInputChange}
               />
             </FormGroup>
