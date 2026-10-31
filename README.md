@@ -1,3 +1,8 @@
+<h1>Fork of Chaptarr</h1>
+
+> :warning: This fork and branch exists so that you can use Chaptarr just to add a single book, and not do something I can't imagine many people wanting which is to then follow the author and all their books.
+> It adds a new toggle at the bottom of the modal when searching for and adding a book which allows you to just add the book, like you would expect, and that's it. Nothing else.
+
 <div align="center">
 
 <img src="Logo/chaptarr.png" width="160" alt="Chaptarr logo">
